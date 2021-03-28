@@ -13,7 +13,7 @@ export const enum ProbingTechnique {
 }
 
 // Length of keys array when hashtable is initialised
-export const INITIAL_CAPACITY = 7;
+const INITIAL_CAPACITY = 7;
 
 export const emptyHashtable = { keys: Array(INITIAL_CAPACITY).fill(undefined), length: 0, tombstoneEntries: 0 };
 
@@ -26,8 +26,11 @@ const TOMBSTONE_ENTRY = null;
 // Denote a place in the array with no values
 const EMPTY_ENTRY = undefined;
 
+// Threshold to prevent search from looping infinitely in the case of a bug
+const MAX_ITERATIONS = 100;
+
 // Add a key into the hashtable
-export function addToHashtable(key: number, nextIndex: (index: number, hashtable: HashTable) => number, hashtable: HashTable) {
+export function addToHashtable(key: number, nextIndex: (index: number, iter: number, hashtable: HashTable) => number, hashtable: HashTable) {
     if (key !== null && key !== undefined) {
         return insertIntoHashtable(key, nextIndex, hashtable);
     } else {
@@ -36,19 +39,19 @@ export function addToHashtable(key: number, nextIndex: (index: number, hashtable
 }
 
 // Delete a key from the hashtable, replacing them with tombstone entries
-export function deleteFromHashtable(key: number, nextIndex: (index: number, hashtable: HashTable) => number, hashtable: HashTable) {
+export function deleteFromHashtable(key: number, nextIndex: (index: number, iter: number, hashtable: HashTable) => number, hashtable: HashTable) {
     const frames: ArrayAnimationFrame[] = [];
     let index = hashFunction(key, hashtable);
 
     frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
 
-    while (hashtable.keys[index] !== key) {
+    for (let iter = 1; hashtable.keys[index] !== key && iter < MAX_ITERATIONS; iter++) {
         if (hashtable.keys[index] === EMPTY_ENTRY) {
             frames.push({ frame: EntryFrame.NotFound, index, message: "Not Found!" });
             return frames;
         }
 
-        index = nextIndex(index, hashtable);
+        index = nextIndex(index, iter, hashtable);
         frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
     }
 
@@ -69,19 +72,19 @@ export function hashtableDeepCopy(hashtable: HashTable) {
     }
 }
 
-export function searchForHashtableKey(key: number, nextIndex: (index: number, hashtable: HashTable) => number, hashtable: HashTable) {
+export function searchForHashtableKey(key: number, nextIndex: (index: number, iter: number, hashtable: HashTable) => number, hashtable: HashTable) {
     const frames: ArrayAnimationFrame[] = [];
     let index = hashFunction(key, hashtable);
 
     frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
 
-    while (hashtable.keys[index] !== EMPTY_ENTRY) {
+    for (let iter = 1; hashtable.keys[index] !== EMPTY_ENTRY && iter < MAX_ITERATIONS; iter++) {
         if (hashtable.keys[index] === key) {
             frames.push({ frame: EntryFrame.Found, index, message: "Found!" });
             return frames;
         }
 
-        index = nextIndex(index, hashtable);
+        index = nextIndex(index, iter, hashtable);
 
         frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
     }
@@ -92,40 +95,32 @@ export function searchForHashtableKey(key: number, nextIndex: (index: number, ha
 }
 
 // Return the index to explore if we're using linear probing, called whenever we have a collision
-export function nextLinearIndex(index: number, hashtable: HashTable) {
-    if (index >= hashtable.keys.length - 1) {
-        return 0;
-    } else {
-        return index + 1;
-    }
+export function nextLinearIndex(index: number, iter: number, hashtable: HashTable) {
+    index += iter;
+
+    return index >= hashtable.keys.length - 1 ? index % hashtable.keys.length : index;
 }
 
 // Return the index to explore if we're using quadratic probing, called whenever we have a collision
-export function nextQuadraticIndex(index: number, hashtable: HashTable) {
-    index = index === 0 ? 1 : index + index * index;
+export function nextQuadraticIndex(index: number, iter: number, hashtable: HashTable) {
+    index += iter * iter;
 
     return index >= hashtable.keys.length - 1 ? index % hashtable.keys.length : index;
 }
 
-export function nextDoubleHashingIndex(index: number, hashtable: HashTable) {
-    index = index + collisionResolutionHashFunction(index);
-
-    return index >= hashtable.keys.length - 1 ? index % hashtable.keys.length : index;
-}
-
-function insertIntoHashtable(key: number, nextIndex: (index: number, hashtable: HashTable) => number, hashtable: HashTable) {
+function insertIntoHashtable(key: number, nextIndex: (index: number, iter: number, hashtable: HashTable) => number, hashtable: HashTable) {
     const frames: ArrayAnimationFrame[] = [];
     let index = hashFunction(key, hashtable);
 
     frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
 
-    while (hashtable.keys[index] !== EMPTY_ENTRY && hashtable.keys[index] !== TOMBSTONE_ENTRY) {
+    for (let iter = 1; isValidEntry(index, hashtable) && iter < MAX_ITERATIONS; iter++) {
         if (hashtable.keys[index] === key) {
             frames.push({ frame: EntryFrame.Found, index, message: "Key already in table, don't add!" });
             return frames;
         }
 
-        index = nextIndex(index, hashtable);
+        index = nextIndex(index, iter, hashtable);
 
         frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
     }
@@ -141,18 +136,22 @@ function insertIntoHashtable(key: number, nextIndex: (index: number, hashtable: 
     return frames;
 }
 
+function isValidEntry(index: number, hashtable: HashTable) {
+    return hashtable.keys[index] !== EMPTY_ENTRY && hashtable.keys[index] !== TOMBSTONE_ENTRY;
+}
+
 // Check if hashtable needs resizing, if it does resize it
-function handleResizeHashtable(computeNextIndex: (index: number, hashtable: HashTable) => number, hashtable: HashTable, index: number) {
+function handleResizeHashtable(nextIndex: (index: number, iter: number, hashtable: HashTable) => number, hashtable: HashTable, index: number) {
     const isOverCapacity = (hashtable.length + hashtable.tombstoneEntries) / hashtable.keys.length > EXPAND_LOADING_FACTOR;
     const needsResizing = hashtable.length / hashtable.keys.length > EXPAND_LOADING_FACTOR;
 
     if (isOverCapacity) {
         if (needsResizing) {
-            resizeHashtable(len => nextPrimeOver(len * 2), computeNextIndex, hashtable);
+            resizeHashtable(len => nextPrimeOver(len * 2), nextIndex, hashtable);
 
             return { frame: EntryFrame.Found, index: index, message: `Rehashing... Resizing to length ${hashtable.keys.length}` };
         } else {
-            resizeHashtable(len => len, computeNextIndex, hashtable);
+            resizeHashtable(len => len, nextIndex, hashtable);
 
             return { frame: EntryFrame.Found, index: index, message: "Rehashing... No resizing needed! Only tombstone entries cleared!" };
         }
@@ -162,7 +161,7 @@ function handleResizeHashtable(computeNextIndex: (index: number, hashtable: Hash
 }
 
 // Replace key array with array whose size is lenFunc(length) and copy all of its items in
-function resizeHashtable(lenFunc: (len: number) => number, nextIndex: (index: number, hashtable: HashTable) => number, hashtable: HashTable) {
+function resizeHashtable(lenFunc: (len: number) => number, nextIndex: (index: number, iter: number, hashtable: HashTable) => number, hashtable: HashTable) {
     const oldKeys = hashtable.keys.slice();
 
     hashtable.keys = Array(lenFunc(oldKeys.length)).fill(EMPTY_ENTRY);
@@ -179,9 +178,5 @@ function resizeHashtable(lenFunc: (len: number) => number, nextIndex: (index: nu
 // Map a key onto an index in the array
 function hashFunction(key: number, hashtable: HashTable) {
     return Math.abs(key % hashtable.keys.length);
-}
-
-function collisionResolutionHashFunction(key: number) {
-    return Math.abs(key % 13);
 }
 

@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { emptyAnimationFrame } from "../frame";
-import { emptyHashtable, hashtableDeepCopy, INITIAL_CAPACITY, nextLinearIndex, nextQuadraticIndex, ProbingTechnique } from "../hashtable";
+import { emptyHashtable, hashtableDeepCopy, nextLinearIndex, nextQuadraticIndex, ProbingTechnique } from "../hashtable";
 import { wait } from "../utils";
 import { List } from "./List";
 import { Menu } from "./Menu";
 
 // The amount of time we wait between displaying frames in milliseconds
-const DELAY = 1000;
+const DELAY = 500;
 
 // Map a JSX string representation of a probing technique on its implementation
 const probingTechniqueToImplementation = new Map<ProbingTechnique, Function>([
