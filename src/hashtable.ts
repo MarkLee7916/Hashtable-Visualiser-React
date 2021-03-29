@@ -41,25 +41,27 @@ export function addToHashtable(key: number, nextIndex: (index: number, iter: num
 // Delete a key from the hashtable, replacing them with tombstone entries
 export function deleteFromHashtable(key: number, nextIndex: (index: number, iter: number, hashtable: HashTable) => number, hashtable: HashTable) {
     const frames: ArrayAnimationFrame[] = [];
-    let index = hashFunction(key, hashtable);
+    const startIndex = hashFunction(key, hashtable);
 
-    frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
+    let currIndex = startIndex;
 
-    for (let iter = 1; hashtable.keys[index] !== key && iter < MAX_ITERATIONS; iter++) {
-        if (hashtable.keys[index] === EMPTY_ENTRY) {
-            frames.push({ frame: EntryFrame.NotFound, index, message: "Not Found!" });
+    frames.push({ frame: EntryFrame.Searching, index: currIndex, message: "Searching..." });
+
+    for (let iter = 1; hashtable.keys[currIndex] !== key && iter < MAX_ITERATIONS; iter++) {
+        if (hashtable.keys[currIndex] === EMPTY_ENTRY) {
+            frames.push({ frame: EntryFrame.NotFound, index: currIndex, message: "Not Found!" });
             return frames;
         }
 
-        index = nextIndex(index, iter, hashtable);
-        frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
+        currIndex = nextIndex(startIndex, iter, hashtable);
+        frames.push({ frame: EntryFrame.Searching, index: currIndex, message: "Searching..." });
     }
 
-    hashtable.keys[index] = TOMBSTONE_ENTRY;
+    hashtable.keys[currIndex] = TOMBSTONE_ENTRY;
     hashtable.tombstoneEntries++;
     hashtable.length--;
 
-    frames.push({ frame: EntryFrame.Found, index, message: "Found! Deleting Item..." });
+    frames.push({ frame: EntryFrame.Found, index: currIndex, message: "Found! Deleting Item..." });
 
     return frames;
 }
@@ -74,22 +76,24 @@ export function hashtableDeepCopy(hashtable: HashTable) {
 
 export function searchForHashtableKey(key: number, nextIndex: (index: number, iter: number, hashtable: HashTable) => number, hashtable: HashTable) {
     const frames: ArrayAnimationFrame[] = [];
-    let index = hashFunction(key, hashtable);
+    const startIndex = hashFunction(key, hashtable);
 
-    frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
+    let currIndex = startIndex;
 
-    for (let iter = 1; hashtable.keys[index] !== EMPTY_ENTRY && iter < MAX_ITERATIONS; iter++) {
-        if (hashtable.keys[index] === key) {
-            frames.push({ frame: EntryFrame.Found, index, message: "Found!" });
+    frames.push({ frame: EntryFrame.Searching, index: currIndex, message: "Searching..." });
+
+    for (let iter = 1; hashtable.keys[currIndex] !== EMPTY_ENTRY && iter < MAX_ITERATIONS; iter++) {
+        if (hashtable.keys[currIndex] === key) {
+            frames.push({ frame: EntryFrame.Found, index: currIndex, message: "Found!" });
             return frames;
         }
 
-        index = nextIndex(index, iter, hashtable);
+        currIndex = nextIndex(startIndex, iter, hashtable);
 
-        frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
+        frames.push({ frame: EntryFrame.Searching, index: currIndex, message: "Searching..." });
     }
 
-    frames.push({ frame: EntryFrame.NotFound, index, message: "Not Found!" });
+    frames.push({ frame: EntryFrame.NotFound, index: currIndex, message: "Not Found!" });
 
     return frames;
 }
@@ -108,9 +112,12 @@ export function nextQuadraticIndex(index: number, iter: number, hashtable: HashT
     return index >= hashtable.keys.length - 1 ? index % hashtable.keys.length : index;
 }
 
+console.log("aaa")
+
 function insertIntoHashtable(key: number, nextIndex: (index: number, iter: number, hashtable: HashTable) => number, hashtable: HashTable) {
     const frames: ArrayAnimationFrame[] = [];
-    let index = hashFunction(key, hashtable);
+    const startIndex = hashFunction(key, hashtable);
+    let index = startIndex;
 
     frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
 
@@ -120,7 +127,7 @@ function insertIntoHashtable(key: number, nextIndex: (index: number, iter: numbe
             return frames;
         }
 
-        index = nextIndex(index, iter, hashtable);
+        index = nextIndex(startIndex, iter, hashtable);
 
         frames.push({ frame: EntryFrame.Searching, index, message: "Searching..." });
     }

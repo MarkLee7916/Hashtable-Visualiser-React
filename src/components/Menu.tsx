@@ -29,8 +29,10 @@ export const Menu = ({ performAction, running, clearHashtable }: Props) => {
   }
 
   function handleUpdateProbingTechnique(technique: ProbingTechnique) {
-    clearHashtable();
-    probingTechnique.current = technique;
+    if (technique !== probingTechnique.current) {
+      clearHashtable();
+      probingTechnique.current = technique;
+    }
   }
 
   return (

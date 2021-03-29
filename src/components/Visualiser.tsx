@@ -6,7 +6,7 @@ import { List } from "./List";
 import { Menu } from "./Menu";
 
 // The amount of time we wait between displaying frames in milliseconds
-const DELAY = 500;
+const DELAY = 1000;
 
 // Map a JSX string representation of a probing technique on its implementation
 const probingTechniqueToImplementation = new Map<ProbingTechnique, Function>([
